@@ -35,6 +35,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
   String? _riderAge;
   String? _selectedRestaurant;
   double _predictionAccuracy = 0.0;
+  String? _distance;
 
   Map<String, String> riderData = {
     'John': '25',
@@ -43,6 +44,12 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
     'Emily': '27',
   };
 
+  Map<String, String> restaurantData = {
+    'Restaurant A': '2.5',
+    'Restaurant B': '3.2',
+    'Restaurant C': '1.8',
+    'Restaurant D': '4.0',
+  };
   List<String> _weatherConditions = ['Sunny', 'Rainy', 'Cloudy', 'Windy'];
   List<String> _availableWeather = [];
 
@@ -100,6 +107,28 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
     }
   }
 
+  Future<void> sendPredictionRequest(Map<String, dynamic> requestData) async {
+    String apiUrl = 'http://127.0.0.1:5000/predict';
+
+    try {
+      var response = await http.post(Uri.parse(apiUrl),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(requestData));
+
+      if (response.statusCode == 200) {
+        var responseData = jsonDecode(response.body);
+        var predictions = responseData['predictions'];
+
+        print('Predictions: $predictions');
+      } else {
+        print(
+            'Failed to send prediction request. Error: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Failed to send prediction request. Error: $e');
+    }
+  }
+
   Widget space(double width) {
     return SizedBox(height: width * 20 / 360);
   }
@@ -153,21 +182,27 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              DropdownButton<String>(
-                hint: Text('Select'),
-                value: _selectedRiderName,
-                items: _riderNames.map((String value) {
-                  return DropdownMenuItem<String>(
-                    value: value,
-                    child: Text(value),
-                  );
-                }).toList(),
-                onChanged: (String? newValue) {
-                  setState(() {
-                    _selectedRiderName = newValue;
-                    _riderAge = riderData[newValue];
-                  });
-                },
+              Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    _selectedRiderName ?? 'Select',
+                    style: TextStyle(
+                      fontSize: width * 15 / 360,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                  SizedBox(width: 25),
+                  IconButton(
+                    onPressed: _selectRider,
+                    icon: Icon(
+                      Icons.edit,
+                      color: Colors.grey,
+                      size: width * 22 / 360,
+                    ),
+                  ),
+                ],
               ),
               space(width),
               Row(
@@ -258,7 +293,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
                   ),
                   SizedBox(width: 25),
                   IconButton(
-                    onPressed: _showRestaurantSearchDialog,
+                    onPressed: _selectRestaurant,
                     icon: Icon(
                       Icons.edit,
                       color: Colors.grey,
@@ -271,17 +306,25 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
               Align(
                 alignment: Alignment.center,
                 child: ElevatedButton(
-                    onPressed: () {
-                      print('clicked');
-                    },
-                    child: Text(
-                      'Submit',
-                      style: TextStyle(
-                        fontSize: width * 15 / 360,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    )),
-              )
+                  onPressed: () {
+                    Map<String, dynamic> requestData = {
+                      "Delivery_person_Age": [_riderAge],
+                      "Delivery_person_Ratings": [_selectedRiderRating],
+                      "Distance": [
+                        _distance != null ? double.parse(_distance!) : 0.0
+                      ],
+                    };
+                    sendPredictionRequest(requestData);
+                  },
+                  child: Text(
+                    'Submit',
+                    style: TextStyle(
+                      fontSize: width * 15 / 360,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -294,6 +337,33 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
           size: width * 22 / 360,
         ),
       ),
+    );
+  }
+
+  void _selectRider() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Select Rider'),
+          content: DropdownButton<String>(
+            value: _selectedRiderName,
+            items: _riderNames.map((String value) {
+              return DropdownMenuItem<String>(
+                value: value,
+                child: Text(value),
+              );
+            }).toList(),
+            onChanged: (String? newValue) {
+              setState(() {
+                _selectedRiderName = newValue;
+                _riderAge = riderData[_selectedRiderName];
+              });
+              Navigator.of(context).pop();
+            },
+          ),
+        );
+      },
     );
   }
 
@@ -330,33 +400,31 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
     );
   }
 
-  void _showRestaurantSearchDialog() {
-    TextEditingController restaurantController = TextEditingController();
-
+  void _selectRestaurant() {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Search for Restaurants'),
-          content: TextField(
-            controller: restaurantController,
-            decoration: InputDecoration(
-              labelText: 'Restaurant Name',
-              prefixIcon: Icon(Icons.restaurant),
-              border: OutlineInputBorder(),
-            ),
+          title: Text('Select Restaurant'),
+          content: DropdownButton<String>(
+            value: _selectedRestaurant,
+            items: restaurantData.keys.map((String restaurant) {
+              return DropdownMenuItem<String>(
+                value: restaurant,
+                child: Text(restaurant),
+              );
+            }).toList(),
+            onChanged: (String? newValue) {
+              setState(() {
+                _selectedRestaurant = newValue;
+                _distance = restaurantData[newValue!];
+              });
+            },
           ),
           actions: [
             TextButton(
               child: Text('OK'),
               onPressed: () {
-                String selectedRestaurant = restaurantController.text;
-                if (selectedRestaurant.isNotEmpty) {
-                  setState(() {
-                    _selectedRestaurant = selectedRestaurant;
-                  });
-                }
-
                 Navigator.of(context).pop();
               },
             ),
