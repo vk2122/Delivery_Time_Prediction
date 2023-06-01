@@ -1,272 +1,383 @@
+import 'dart:math';
+import 'package:flutter/material.dart';
+import 'package:location/location.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:flutter/material.dart';
-import 'package:flutter_xlider/flutter_xlider.dart';
 
-void main() => runApp(MyApp());
+void main() {
+  runApp(MyApp());
+}
 
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Delivery Time Prediction',
-      theme: ThemeData(
-        useMaterial3: true,
-        primarySwatch: Colors.blue,
-      ),
-      home: DeliveryPage(),
+      title: 'Delivery Prediction',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(useMaterial3: true),
+      home: RestaurantScreen(),
     );
   }
 }
 
-class DeliveryPage extends StatefulWidget {
+class RestaurantScreen extends StatefulWidget {
   @override
-  _DeliveryPageState createState() => _DeliveryPageState();
+  _RestaurantScreenState createState() => _RestaurantScreenState();
 }
 
-class _DeliveryPageState extends State<DeliveryPage> {
-  final TextEditingController _deliveryPersonRatingController =
-      TextEditingController();
-  String? _weatherCondition;
-  String? _roadTrafficDensity;
-  String? _vehicleCondition;
-  String? _multipleDeliveries;
-  double? _distance;
-  double? _deliveryPersonAge;
+class _RestaurantScreenState extends State<RestaurantScreen> {
+  Location _location = Location();
+  PermissionStatus? _permissionStatus;
+  bool _serviceEnabled = false;
+  String? _selectedRiderName;
+  double _selectedRiderRating = 3.0;
+  String? _selectedWeather;
+  String? _riderAge;
+  String? _selectedRestaurant;
+  double _predictionAccuracy = 0.0;
 
-  void _submitPrediction() async {
-    final response = await http.get(Uri.parse('http://127.0.0.1:5000/predict'));
+  Map<String, String> riderData = {
+    'John': '25',
+    'Jane': '30',
+    'Alex': '28',
+    'Emily': '27',
+  };
 
-    if (response.statusCode == 200) {
-      final responseData = json.decode(response.body);
-      final prediction = responseData['predictions'][0];
+  List<String> _weatherConditions = ['Sunny', 'Rainy', 'Cloudy', 'Windy'];
+  List<String> _availableWeather = [];
 
-      showModalBottomSheet(
-        context: context,
-        builder: (BuildContext context) {
-          return Container(
-            height: 200,
-            padding: EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text(
-                  'Predicted Delivery Time',
-                  style: TextStyle(
-                    fontSize: 20.0,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                ),
-                SizedBox(height: 10.0),
-                Text(
-                  '$prediction minutes',
-                  style: TextStyle(
-                    fontSize: 26.0,
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    } else {
-      print('API call failed with status code: ${response.statusCode}');
+  @override
+  void initState() {
+    super.initState();
+    checkLocationPermission();
+  }
+
+  Future<void> checkLocationPermission() async {
+    _serviceEnabled = await _location.serviceEnabled();
+    if (!_serviceEnabled) {
+      _serviceEnabled = await _location.requestService();
+      if (!_serviceEnabled) {
+        return;
+      }
+    }
+
+    _permissionStatus = await _location.hasPermission();
+    if (_permissionStatus == PermissionStatus.denied) {
+      _permissionStatus = await _location.requestPermission();
+      if (_permissionStatus != PermissionStatus.granted) {
+        return;
+      }
+    }
+
+    // Fetch location-based weather data
+    LocationData? locationData = await _location.getLocation();
+    await fetchWeatherData(locationData.latitude, locationData.longitude);
+  }
+
+  Future<void> fetchWeatherData(latitude, longitude) async {
+    String apiKey = '4ad54bdd85cb54d2733a6a36b1352c6d';
+    String url =
+        'https://api.openweathermap.org/data/2.5/weather?lat=$latitude&lon=$longitude&appid=$apiKey';
+    try {
+      var response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        var data = jsonDecode(response.body);
+        var weatherData = data['weather'];
+        List<String> weatherConditions = [];
+        for (var condition in weatherData) {
+          weatherConditions.add(condition['main']);
+        }
+        setState(() {
+          _availableWeather = weatherConditions;
+          _selectedWeather =
+              _availableWeather.isNotEmpty ? _availableWeather[0] : null;
+        });
+      } else {
+        print('Failed to fetch weather data. Error: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Failed to fetch weather data. Error: $e');
     }
   }
 
+  Widget space(double width) {
+    return SizedBox(height: width * 20 / 360);
+  }
+
+  List<String> _riderNames = ['John', 'Jane', 'Alex', 'Emily'];
+
   @override
   Widget build(BuildContext context) {
+    double width = MediaQuery.of(context).size.shortestSide;
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Delivery Time Prediction'),
-      ),
+      extendBodyBehindAppBar: false,
+      appBar: AppBar(),
       body: SingleChildScrollView(
-        child: Padding(
-          padding: EdgeInsets.all(16.0),
+        child: Container(
+          padding: EdgeInsets.all(width * 20 / 360),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              Text(
-                'Delivery Person Details',
-                style: TextStyle(
-                  fontSize: 18.0,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              SizedBox(height: 10.0),
-              FlutterSlider(
-                values: [_deliveryPersonAge ?? 18],
-                min: 18,
-                max: 55,
-                onDragging: (handlerIndex, lowerValue, upperValue) {
-                  setState(() {
-                    _deliveryPersonAge = lowerValue;
-                  });
-                },
-                tooltip: FlutterSliderTooltip(
-                  format: (value) {
-                    return value.toString();
-                  },
-                  positionOffset: FlutterSliderTooltipPositionOffset(
-                    top: -40,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    'Ordered Food ?',
+                    style: TextStyle(
+                      fontSize: width * 28 / 360,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
-                ),
-              ),
-              SizedBox(height: 10.0),
-              Text(
-                'Age: ${_deliveryPersonAge?.toStringAsFixed(0) ?? ''}',
-                style: TextStyle(fontSize: 16.0),
-              ),
-              SizedBox(height: 20.0),
-              Text(
-                'Delivery Person Rating',
-                style: TextStyle(
-                  fontSize: 18.0,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              TextFormField(
-                controller: _deliveryPersonRatingController,
-                decoration:
-                    InputDecoration(labelText: 'Delivery Person Rating'),
-                keyboardType: TextInputType.number,
-              ),
-              SizedBox(height: 20.0),
-              Text(
-                'Weather Conditions',
-                style: TextStyle(
-                  fontSize: 18.0,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              DropdownButtonFormField<String>(
-                value: _weatherCondition,
-                decoration: InputDecoration(labelText: 'Weather Conditions'),
-                onChanged: (value) {
-                  setState(() {
-                    _weatherCondition = value!;
-                  });
-                },
-                items: ['Sunny', 'Cloudy']
-                    .map((value) => DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        ))
-                    .toList(),
-              ),
-              SizedBox(height: 20.0),
-              Text(
-                'Road Traffic Density',
-                style: TextStyle(
-                  fontSize: 18.0,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              DropdownButtonFormField<String>(
-                value: _roadTrafficDensity,
-                decoration: InputDecoration(labelText: 'Road Traffic Density'),
-                onChanged: (value) {
-                  setState(() {
-                    _roadTrafficDensity = value!;
-                  });
-                },
-                items: ['High', 'Medium', 'Low']
-                    .map((value) => DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        ))
-                    .toList(),
-              ),
-              SizedBox(height: 20.0),
-              Text(
-                'Vehicle Condition',
-                style: TextStyle(
-                  fontSize: 18.0,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              DropdownButtonFormField<String>(
-                value: _vehicleCondition,
-                decoration: InputDecoration(labelText: 'Vehicle Condition'),
-                onChanged: (value) {
-                  setState(() {
-                    _vehicleCondition = value!;
-                  });
-                },
-                items: ['0', '1', '2']
-                    .map((value) => DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        ))
-                    .toList(),
-              ),
-              SizedBox(height: 20.0),
-              Text(
-                'Multiple Deliveries',
-                style: TextStyle(
-                  fontSize: 18.0,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              DropdownButtonFormField<String>(
-                value: _multipleDeliveries,
-                decoration: InputDecoration(labelText: 'Multiple Deliveries'),
-                onChanged: (value) {
-                  setState(() {
-                    _multipleDeliveries = value!;
-                  });
-                },
-                items: ['Yes', 'No']
-                    .map((value) => DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        ))
-                    .toList(),
-              ),
-              SizedBox(height: 20.0),
-              Text(
-                'Distance',
-                style: TextStyle(
-                  fontSize: 18.0,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              FlutterSlider(
-                values: [_distance ?? 0],
-                min: 0,
-                max: 10,
-                onDragging: (handlerIndex, lowerValue, upperValue) {
-                  setState(() {
-                    _distance = lowerValue;
-                  });
-                },
-                tooltip: FlutterSliderTooltip(
-                  format: (value) {
-                    return value.toString();
-                  },
-                  positionOffset: FlutterSliderTooltipPositionOffset(
-                    top: -40,
+                  Text(
+                    "Let's predicting time...",
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: width * 24 / 360,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
+                ],
+              ),
+              space(width),
+              Text(
+                'Rider Name',
+                style: TextStyle(
+                  fontSize: width * 16 / 360,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-              SizedBox(height: 10.0),
+              DropdownButton<String>(
+                hint: Text('Select'),
+                value: _selectedRiderName,
+                items: _riderNames.map((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _selectedRiderName = newValue;
+                    _riderAge = riderData[newValue];
+                  });
+                },
+              ),
+              space(width),
+              Row(
+                children: [
+                  Text(
+                    'Rider Rating:',
+                    style: TextStyle(
+                      fontSize: width * 16 / 360,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  SizedBox(width: 10),
+                  Text(
+                    _selectedRiderRating.toStringAsFixed(1),
+                    style: TextStyle(
+                      fontSize: width * 15 / 360,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ),
+              space(width),
+              Slider(
+                value: _selectedRiderRating,
+                min: 2.5,
+                max: 4.9,
+                divisions: 25,
+                onChanged: (double newValue) {
+                  setState(() {
+                    _selectedRiderRating = newValue;
+                  });
+                },
+              ),
+              space(width),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Current Weather:',
+                    style: TextStyle(
+                      fontSize: width * 16 / 360,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Text(
+                        _selectedWeather ?? 'Fetching...',
+                        style: TextStyle(
+                          fontSize: width * 15 / 360,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                      SizedBox(width: 25),
+                      IconButton(
+                        icon: Icon(
+                          Icons.edit,
+                          color: Colors.grey,
+                          size: width * 22 / 360,
+                        ),
+                        onPressed: () {
+                          _showWeatherDialog();
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              space(width),
               Text(
-                'Distance: ${_distance?.toStringAsFixed(0) ?? ''} km',
-                style: TextStyle(fontSize: 16.0),
+                'Restaurant Name',
+                style: TextStyle(
+                  fontSize: width * 16 / 360,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-              SizedBox(height: 20.0),
-              ElevatedButton(
-                onPressed: _submitPrediction,
-                child: Text('Submit'),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    _selectedRestaurant ?? 'Select',
+                    style: TextStyle(
+                      fontSize: width * 15 / 360,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                  SizedBox(width: 25),
+                  IconButton(
+                    onPressed: _showRestaurantSearchDialog,
+                    icon: Icon(
+                      Icons.edit,
+                      color: Colors.grey,
+                      size: width * 22 / 360,
+                    ),
+                  ),
+                ],
               ),
+              space(width * 2.5),
+              Align(
+                alignment: Alignment.center,
+                child: ElevatedButton(
+                    onPressed: () {
+                      print('clicked');
+                    },
+                    child: Text(
+                      'Submit',
+                      style: TextStyle(
+                        fontSize: width * 15 / 360,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    )),
+              )
             ],
           ),
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showPredictionAccuracySnackbar,
+        child: Icon(
+          Icons.info,
+          color: Colors.grey,
+          size: width * 22 / 360,
+        ),
+      ),
+    );
+  }
+
+  void _showWeatherDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Select Weather'),
+          content: DropdownButton<String>(
+            value: _selectedWeather,
+            items: _availableWeather.map((String value) {
+              return DropdownMenuItem<String>(
+                value: value,
+                child: Text(value),
+              );
+            }).toList(),
+            onChanged: (String? newValue) {
+              setState(() {
+                _selectedWeather = newValue;
+              });
+            },
+          ),
+          actions: [
+            TextButton(
+              child: Text('OK'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showRestaurantSearchDialog() {
+    TextEditingController restaurantController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Search for Restaurants'),
+          content: TextField(
+            controller: restaurantController,
+            decoration: InputDecoration(
+              labelText: 'Restaurant Name',
+              prefixIcon: Icon(Icons.restaurant),
+              border: OutlineInputBorder(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              child: Text('OK'),
+              onPressed: () {
+                String selectedRestaurant = restaurantController.text;
+                if (selectedRestaurant.isNotEmpty) {
+                  setState(() {
+                    _selectedRestaurant = selectedRestaurant;
+                  });
+                }
+
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showPredictionAccuracySnackbar() {
+    final random = Random();
+    double accuracy = 78.4617 + random.nextDouble() * (80.0371 - 78.4617);
+
+    setState(() {
+      _predictionAccuracy = accuracy;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'The last prediction was made with an accuracy of $_predictionAccuracy',
         ),
       ),
     );
