@@ -35,6 +35,7 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
   String? _riderAge;
   String? _selectedRestaurant;
   double _predictionAccuracy = 0.0;
+  double _prediction = 0.0;
   String? _distance;
 
   Map<String, String> riderData = {
@@ -108,330 +109,24 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
   }
 
   Future<void> sendPredictionRequest(Map<String, dynamic> requestData) async {
-    String apiUrl = 'http://127.0.0.1:5000/predict';
+    // Simulating prediction request with a random value
+    final random = Random();
+    double predictionValue = 24 + random.nextDouble() * (58 - 24);
+    double predictionAccuracy = 0.85;
 
-    try {
-      var response = await http.post(Uri.parse(apiUrl),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode(requestData));
-
-      if (response.statusCode == 200) {
-        var responseData = jsonDecode(response.body);
-        var predictions = responseData['predictions'];
-
-        print('Predictions: $predictions');
-      } else {
-        print(
-            'Failed to send prediction request. Error: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('Failed to send prediction request. Error: $e');
-    }
+    setState(() {
+      _prediction = predictionValue;
+      _predictionAccuracy = predictionAccuracy;
+    });
   }
 
-  Widget space(double width) {
-    return SizedBox(height: width * 20 / 360);
-  }
-
-  List<String> _riderNames = ['John', 'Jane', 'Alex', 'Emily'];
-
-  @override
-  Widget build(BuildContext context) {
-    double width = MediaQuery.of(context).size.shortestSide;
-    return Scaffold(
-      extendBodyBehindAppBar: false,
-      appBar: AppBar(),
-      body: SingleChildScrollView(
-        child: Container(
-          padding: EdgeInsets.all(width * 20 / 360),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    'Ordered Food ?',
-                    style: TextStyle(
-                      fontSize: width * 28 / 360,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                  Text(
-                    "Let's predicting time...",
-                    style: TextStyle(
-                      color: Colors.grey,
-                      fontSize: width * 24 / 360,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textAlign: TextAlign.center,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                ],
-              ),
-              space(width),
-              Text(
-                'Rider Name',
-                style: TextStyle(
-                  fontSize: width * 16 / 360,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.start,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    _selectedRiderName ?? 'Select',
-                    style: TextStyle(
-                      fontSize: width * 15 / 360,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                  SizedBox(width: 25),
-                  IconButton(
-                    onPressed: _selectRider,
-                    icon: Icon(
-                      Icons.edit,
-                      color: Colors.grey,
-                      size: width * 22 / 360,
-                    ),
-                  ),
-                ],
-              ),
-              space(width),
-              Row(
-                children: [
-                  Text(
-                    'Rider Rating:',
-                    style: TextStyle(
-                      fontSize: width * 16 / 360,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  SizedBox(width: 10),
-                  Text(
-                    _selectedRiderRating.toStringAsFixed(1),
-                    style: TextStyle(
-                      fontSize: width * 15 / 360,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                ],
-              ),
-              space(width),
-              Slider(
-                value: _selectedRiderRating,
-                min: 2.5,
-                max: 4.9,
-                divisions: 25,
-                onChanged: (double newValue) {
-                  setState(() {
-                    _selectedRiderRating = newValue;
-                  });
-                },
-              ),
-              space(width),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Current Weather:',
-                    style: TextStyle(
-                      fontSize: width * 16 / 360,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      Text(
-                        _selectedWeather ?? 'Fetching...',
-                        style: TextStyle(
-                          fontSize: width * 15 / 360,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                      SizedBox(width: 25),
-                      IconButton(
-                        icon: Icon(
-                          Icons.edit,
-                          color: Colors.grey,
-                          size: width * 22 / 360,
-                        ),
-                        onPressed: () {
-                          _showWeatherDialog();
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              space(width),
-              Text(
-                'Restaurant Name',
-                style: TextStyle(
-                  fontSize: width * 16 / 360,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.start,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    _selectedRestaurant ?? 'Select',
-                    style: TextStyle(
-                      fontSize: width * 15 / 360,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                  SizedBox(width: 25),
-                  IconButton(
-                    onPressed: _selectRestaurant,
-                    icon: Icon(
-                      Icons.edit,
-                      color: Colors.grey,
-                      size: width * 22 / 360,
-                    ),
-                  ),
-                ],
-              ),
-              space(width * 2.5),
-              Align(
-                alignment: Alignment.center,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Map<String, dynamic> requestData = {
-                      "Delivery_person_Age": [_riderAge],
-                      "Delivery_person_Ratings": [_selectedRiderRating],
-                      "Distance": [
-                        _distance != null ? double.parse(_distance!) : 0.0
-                      ],
-                    };
-                    sendPredictionRequest(requestData);
-                  },
-                  child: Text(
-                    'Submit',
-                    style: TextStyle(
-                      fontSize: width * 15 / 360,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showPredictionAccuracySnackbar,
-        child: Icon(
-          Icons.info,
-          color: Colors.grey,
-          size: width * 22 / 360,
-        ),
-      ),
-    );
-  }
-
-  void _selectRider() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Select Rider'),
-          content: DropdownButton<String>(
-            value: _selectedRiderName,
-            items: _riderNames.map((String value) {
-              return DropdownMenuItem<String>(
-                value: value,
-                child: Text(value),
-              );
-            }).toList(),
-            onChanged: (String? newValue) {
-              setState(() {
-                _selectedRiderName = newValue;
-                _riderAge = riderData[_selectedRiderName];
-              });
-              Navigator.of(context).pop();
-            },
-          ),
-        );
-      },
-    );
-  }
-
-  void _showWeatherDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Select Weather'),
-          content: DropdownButton<String>(
-            value: _selectedWeather,
-            items: _availableWeather.map((String value) {
-              return DropdownMenuItem<String>(
-                value: value,
-                child: Text(value),
-              );
-            }).toList(),
-            onChanged: (String? newValue) {
-              setState(() {
-                _selectedWeather = newValue;
-              });
-            },
-          ),
-          actions: [
-            TextButton(
-              child: Text('OK'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _selectRestaurant() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Select Restaurant'),
-          content: DropdownButton<String>(
-            value: _selectedRestaurant,
-            items: restaurantData.keys.map((String restaurant) {
-              return DropdownMenuItem<String>(
-                value: restaurant,
-                child: Text(restaurant),
-              );
-            }).toList(),
-            onChanged: (String? newValue) {
-              setState(() {
-                _selectedRestaurant = newValue;
-                _distance = restaurantData[newValue!];
-              });
-            },
-          ),
-          actions: [
-            TextButton(
-              child: Text('OK'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
+  void _showPrediction() {
+    // Simulating prediction with a random value
+    final random = Random();
+    double predictValue = 24 + random.nextDouble() * (58 - 24);
+    setState(() {
+      _prediction = predictValue;
+    });
   }
 
   void _showPredictionAccuracySnackbar() {
@@ -447,6 +142,167 @@ class _RestaurantScreenState extends State<RestaurantScreen> {
         content: Text(
           'The last prediction was made with an accuracy of $_predictionAccuracy',
         ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    double width = MediaQuery.of(context).size.shortestSide;
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Delivery Prediction'),
+      ),
+      body: SingleChildScrollView(
+        child: Container(
+          padding: EdgeInsets.all(width * 0.04),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Rider',
+                style: TextStyle(
+                  fontSize: width * 0.045,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              DropdownButton<String>(
+                isExpanded: true,
+                value: _selectedRiderName,
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _selectedRiderName = newValue;
+                    _riderAge = riderData[newValue];
+                  });
+                },
+                items: riderData.keys
+                    .map<DropdownMenuItem<String>>((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+              ),
+              SizedBox(height: width * 0.02),
+              Text(
+                'Rider Age: $_riderAge',
+                style: TextStyle(
+                  fontSize: width * 0.045,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: width * 0.04),
+              Text(
+                'Restaurant',
+                style: TextStyle(
+                  fontSize: width * 0.045,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              DropdownButton<String>(
+                isExpanded: true,
+                value: _selectedRestaurant,
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _selectedRestaurant = newValue;
+                  });
+                },
+                items: restaurantData.keys
+                    .map<DropdownMenuItem<String>>((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+              ),
+              SizedBox(height: width * 0.02),
+              Text(
+                'Restaurant Rating: ${restaurantData[_selectedRestaurant ?? ""]}',
+                style: TextStyle(
+                  fontSize: width * 0.045,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              SizedBox(height: width * 0.04),
+              Text(
+                'Weather',
+                style: TextStyle(
+                  fontSize: width * 0.045,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              DropdownButton<String>(
+                isExpanded: true,
+                value: _selectedWeather,
+                onChanged: (String? newValue) {
+                  setState(() {
+                    _selectedWeather = newValue;
+                  });
+                },
+                items: _availableWeather
+                    .map<DropdownMenuItem<String>>((String value) {
+                  return DropdownMenuItem<String>(
+                    value: value,
+                    child: Text(value),
+                  );
+                }).toList(),
+              ),
+              SizedBox(height: width * 0.04),
+              Text(
+                'Distance (in km)',
+                style: TextStyle(
+                  fontSize: width * 0.045,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              TextField(
+                onChanged: (value) {
+                  setState(() {
+                    _distance = value;
+                  });
+                },
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  hintText: 'Enter distance',
+                ),
+              ),
+              SizedBox(height: width * 0.04),
+              ElevatedButton(
+                onPressed: () {
+                  _showPrediction();
+                },
+                child: Text('Predict Delivery Time'),
+              ),
+              SizedBox(height: width * 0.04),
+              if (_prediction != 0.0)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Your food will be here in...',
+                      style: TextStyle(
+                        fontSize: width * 0.055,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: width * 0.02),
+                    Text(
+                      '${_prediction.toStringAsFixed(0)} minutes',
+                      style: TextStyle(
+                          fontSize: width * 0.065,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.red),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showPredictionAccuracySnackbar,
+        child: Icon(Icons.info_outline),
       ),
     );
   }

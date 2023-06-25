@@ -5,7 +5,7 @@ import xgboost as xgb
 
 app = Flask(__name__)
 
-filename = 'D:/Delivery_Time_Prediction/model/timePred.pkl'
+filename = 'D:/Projects/Flutter_Apps/Delivery_Time_Prediction/model/timePred.pkl'
 with open(filename, 'rb') as file:
     loaded_model = pickle.load(file)
 
